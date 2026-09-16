@@ -45,11 +45,30 @@ The `install-src/` templates let `sync.sh` re-embed the live sources into the si
 - **Additive only:** installs packages, never purges them; backs up before replacing; your personal folders, games, and apps are untouched.
 - **Last-write-wins:** whole files sync cleanly one-at-a-time. The safe rhythm is sync → commit → pull + `setup.sh` on the other machine.
 
+## Automatic sync (`qs-loop`)
+
+`qs-loop` is the one-command version: **`save`** captures this machine, commits, and pushes your changes; **`apply`** pulls and runs setup. **`once`** does both (save then apply) — the default.
+
+```sh
+qs-loop once      # my changes out, latest in — one swoop
+```
+
+`setup.sh` installs three systemd user units by default (`--no-auto` opts out):
+- `qs-loop.timer` — runs `qs-loop once` every 10 minutes (both machines; idle ones no-op).
+- `qs-apply.service` — pulls + applies at login.
+- `qs-save.service` — runs a final `save` when the session ends (closes the gap between the last timer tick and shutdown).
+
+Safety rails: never force-pushes; offline commits are pushed on the next tick; a same-file conflict aborts cleanly (your commit stays, working tree restored, nothing deleted) and asks you to reconcile manually. Logs live in `~/.local/state/qs-loop/log`; setup output in `~/.local/state/qs-loop/setup.log`.
+
+With automation on, the repo is the source of truth: edit live files with confidence, but make sure `qs-loop save` has run (or run `./sync.sh`) before pulling on a second machine with divergent local edits.
+
 ## Layout
 
 ```
 setup.sh                  # deploy: repo -> machine
 sync.sh                   # capture: machine -> repo (+ installer regen)
+qs-loop.sh                # one-swoop save/apply sync (installed as `qs-loop`)
+systemd/                  # unit templates (timer, login apply, shutdown save)
 config/                   # chromium-flags.conf, fish.path.line
 hypr/customconfig/        # your bindings.lua (the whole file)
 files/quickshell-picker/  # live picker sources
