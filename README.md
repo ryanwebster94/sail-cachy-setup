@@ -13,6 +13,7 @@ The repo mirrors the on-disk configuration it manages. `setup.sh` pushes the rep
 | `config/fish.path.line` | appended to `~/.config/fish/config.fish` | Adds `~/.local/bin` to PATH (only if absent). |
 | `files/quickshell-picker/` | `~/.config/quickshell/picker/` | Wallpaper / theme-folder carousel picker + scripts. |
 | `files/webapps/` | `~/.config/webapps/bin/` | Web app install / launch / focus / remove tooling. |
+| *(generated)* | `Install Web App.desktop` | Launcher entry that opens the web-app install TUI. |
 
 Hotkeys (muscle memory, defined in `bindings.lua`):
 - `SUPER + CTRL + SPACE` — random wallpaper from current folder

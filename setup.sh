@@ -91,6 +91,24 @@ deploy_flags() {
     install -m 644 "$REPO_DIR/config/chromium-flags.conf" "$CONFIG_HOME/chromium-flags.conf"
 }
 
+deploy_webapp_launcher() {
+    local dst="${XDG_DATA_HOME:-$HOME/.local/share}/applications/Install Web App.desktop"
+    say "deploying launcher entry -> $dst"
+    mkdir -p "${dst%/*}"
+    install -m 644 /dev/stdin "$dst" <<EOF
+[Desktop Entry]
+Version=1.0
+Name=Install Web App
+Comment=Add a web app launcher (opens the setup TUI)
+Exec=$HOME/.config/webapps/bin/qs-webapp-open-tui
+Terminal=false
+Type=Application
+Icon=applications-internet
+StartupNotify=true
+EOF
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "${dst%/*}" || true
+}
+
 deploy_bindings() {
     local dst="$CONFIG_HOME/hypr/customconfig/bindings.lua"
     say "deploying bindings.lua"
@@ -129,9 +147,10 @@ link_bin() {
 }
 
 uninstall() {
-    warn "removing picker, web app tooling, flags, and qs-* symlinks"
+    warn "removing picker, web app tooling, flags, launcher entry, and qs-* symlinks"
     rm -rf "$PICKER_DIR" "$WEBAPPS_BIN"
     rm -f "$CONFIG_HOME/chromium-flags.conf"
+    rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/Install Web App.desktop"
     rm -f "$BIN_LINK_DIR"/qs-picker "$BIN_LINK_DIR"/qs-folder-pick "$BIN_LINK_DIR"/qs-wallpaper-pick \
           "$BIN_LINK_DIR"/qs-webapp-install "$BIN_LINK_DIR"/qs-webapp-launch "$BIN_LINK_DIR"/qs-webapp-focus \
           "$BIN_LINK_DIR"/qs-webapp-remove "$BIN_LINK_DIR"/qs-webapp-open-tui
@@ -156,6 +175,7 @@ check_deps || die "dependencies missing (rerun with --install-deps)"
 deploy_picker
 deploy_webapps
 deploy_flags
+deploy_webapp_launcher
 deploy_bindings
 deploy_fish_line
 ((LINK_BIN)) && link_bin
