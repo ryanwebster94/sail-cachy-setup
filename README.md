@@ -36,7 +36,7 @@ git pull && ./setup.sh
 git add -A && git commit && git push
 ```
 
-The `install-src/` templates let `sync.sh` re-embed the live sources into the two single-file installers (`~/qs-wallpaper-picker`, `~/qs-webapp-creator`), so those stay in publishable shape without any manual repackaging.
+The `install-src/` templates let `sync.sh` re-embed the live sources into the single-file installers under `dist/` (`qs-picker-install.sh`, `qs-webapp-install.sh`) — the shareable one-script handouts that live in this repo too — and mirrors them into `~/qs-wallpaper-picker` and `~/qs-webapp-creator` if those standalone repos are present.
 
 ### Scope and safety
 
@@ -54,6 +54,7 @@ hypr/customconfig/        # your bindings.lua (the whole file)
 files/quickshell-picker/  # live picker sources
 files/webapps/            # live web-app scripts
 install-src/              # installer templates for sync.sh regen
+dist/                     # regenerated single-file installers (friend handouts)
 ```
 
 ## Requirements

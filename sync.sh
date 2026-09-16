@@ -64,16 +64,22 @@ fill_installer() {
     chmod +x "$out"
 }
 
+# Always regenerate into this repo's dist/ (single-file handouts live here too).
+mkdir -p "$REPO_DIR/dist"
+fill_installer "$REPO_DIR/install-src/qs-picker-install.sh.tmpl"  "$REPO_DIR/dist/qs-picker-install.sh"
+fill_installer "$REPO_DIR/install-src/qs-webapp-install.sh.tmpl"  "$REPO_DIR/dist/qs-webapp-install.sh"
+
+# Mirror into the standalone repos if present (keeps them fresh; optional).
 if [[ -d "$HOME/qs-wallpaper-picker" ]]; then
-    fill_installer "$REPO_DIR/install-src/qs-picker-install.sh.tmpl" "$HOME/qs-wallpaper-picker/qs-picker-install.sh"
+    cp "$REPO_DIR/dist/qs-picker-install.sh" "$HOME/qs-wallpaper-picker/qs-picker-install.sh"
 else
-    warn "skipping ~/qs-wallpaper-picker regen (repo not present)"
+    warn "skipping ~/qs-wallpaper-picker mirror (repo not present)"
 fi
 
 if [[ -d "$HOME/qs-webapp-creator" ]]; then
-    fill_installer "$REPO_DIR/install-src/qs-webapp-install.sh.tmpl" "$HOME/qs-webapp-creator/qs-webapp-install.sh"
+    cp "$REPO_DIR/dist/qs-webapp-install.sh" "$HOME/qs-webapp-creator/qs-webapp-install.sh"
 else
-    warn "skipping ~/qs-webapp-creator regen (repo not present)"
+    warn "skipping ~/qs-webapp-creator mirror (repo not present)"
 fi
 
 # --- 3. hand off -----------------------------------------------------------
