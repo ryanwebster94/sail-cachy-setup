@@ -1,0 +1,9 @@
+[Unit]
+Description=qs-loop apply at login
+
+[Service]
+Type=oneshot
+ExecStart=__REPO__/qs-loop.sh apply
+
+[Install]
+WantedBy=default.target

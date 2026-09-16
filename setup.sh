@@ -22,6 +22,7 @@ usage: setup.sh [options]
 
   --check           verify environment and dependencies, then exit
   --install-deps    install packages via pacman (sudo), then continue
+  --no-auto         do not install systemd automation units
   --no-link-bin     do not symlink qs-* commands into ~/.local/bin
   --no-reload       do not run hyprctl reload at the end
   --uninstall       remove files this repo manages (bindings untouched, see notes)
@@ -32,11 +33,12 @@ say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mWARN\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31mERR\033[0m %s\n' "$*" >&2; exit 1; }
 
-CHK=0; INSTALL_DEPS=0; LINK_BIN=1; RELOAD=1; UNINSTALL=0
+CHK=0; INSTALL_DEPS=0; LINK_BIN=1; RELOAD=1; UNINSTALL=0; AUTO=1
 for a in "$@"; do
     case "$a" in
         --check) CHK=1 ;;
         --install-deps) INSTALL_DEPS=1 ;;
+        --no-auto) AUTO=0 ;;
         --no-link-bin) LINK_BIN=0 ;;
         --no-reload) RELOAD=0 ;;
         --uninstall) UNINSTALL=1 ;;
@@ -144,16 +146,38 @@ link_bin() {
     for f in qs-webapp-install qs-webapp-launch qs-webapp-focus qs-webapp-remove qs-webapp-open-tui; do
         ln -sf "$WEBAPPS_BIN/$f" "$dir/$f"
     done
+    ln -sf "$REPO_DIR/qs-loop.sh" "$dir/qs-loop"
+}
+
+install_auto_units() {
+    local unit_dir="$CONFIG_HOME/systemd/user"
+    say "installing systemd automation units -> $unit_dir"
+    mkdir -p "$unit_dir"
+    for f in qs-loop.timer qs-loop.service qs-apply.service qs-save.service; do
+        sed "s|__REPO__|$REPO_DIR|g" "$REPO_DIR/systemd/$f.in" > "$unit_dir/$f"
+    done
+    systemctl --user daemon-reload
+    systemctl --user enable --now qs-loop.timer qs-apply.service qs-save.service
+}
+
+remove_auto_units() {
+    local unit_dir="$CONFIG_HOME/systemd/user"
+    systemctl --user disable --now qs-loop.timer qs-apply.service qs-save.service 2>/dev/null || true
+    rm -f "$unit_dir"/qs-loop.timer "$unit_dir"/qs-loop.service \
+          "$unit_dir"/qs-apply.service "$unit_dir"/qs-save.service
+    systemctl --user daemon-reload 2>/dev/null || true
 }
 
 uninstall() {
-    warn "removing picker, web app tooling, flags, launcher entry, and qs-* symlinks"
+    warn "removing picker, web app tooling, flags, launcher entry, automation, and qs-* symlinks"
+    remove_auto_units
     rm -rf "$PICKER_DIR" "$WEBAPPS_BIN"
     rm -f "$CONFIG_HOME/chromium-flags.conf"
     rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/Install Web App.desktop"
     rm -f "$BIN_LINK_DIR"/qs-picker "$BIN_LINK_DIR"/qs-folder-pick "$BIN_LINK_DIR"/qs-wallpaper-pick \
           "$BIN_LINK_DIR"/qs-webapp-install "$BIN_LINK_DIR"/qs-webapp-launch "$BIN_LINK_DIR"/qs-webapp-focus \
-          "$BIN_LINK_DIR"/qs-webapp-remove "$BIN_LINK_DIR"/qs-webapp-open-tui
+          "$BIN_LINK_DIR"/qs-webapp-remove "$BIN_LINK_DIR"/qs-webapp-open-tui "$BIN_LINK_DIR"/qs-loop
+    rm -rf "$STATE_HOME/qs-loop"
     say "bindings.lua untouched. Previous versions are kept as bindings.lua.*.bak"
     say "to restore one: mv $CONFIG_HOME/hypr/customconfig/bindings.lua.<stamp>.bak $CONFIG_HOME/hypr/customconfig/bindings.lua"
 }
@@ -179,6 +203,7 @@ deploy_webapp_launcher
 deploy_bindings
 deploy_fish_line
 ((LINK_BIN)) && link_bin
+((AUTO)) && install_auto_units
 
 if ((RELOAD)); then
     say "reloading Hyprland"
@@ -192,7 +217,7 @@ What you have now:
   SUPER+CTRL+SPACE      random wallpaper from current folder
   SUPER+SHIFT+CTRL+SPACE choose folder, random wallpaper
   qs-webapp-install      add a web app (launched borderless via chromium --app)
+  qs-loop                one-swoop sync: save (push my changes) + apply (pull + deploy)
 
-To bring changes FROM another machine: git pull && ./setup.sh
-To push changes TO the repo:          ./sync.sh (then commit + push)
+Automation $( ((AUTO)) && printf 'installed: qs-loop.timer (every 10 min), qs-apply (login), qs-save (shutdown)' || printf 'skipped (--no-auto)' ).
 EOF

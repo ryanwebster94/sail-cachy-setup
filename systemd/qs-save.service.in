@@ -1,0 +1,12 @@
+[Unit]
+Description=qs-loop final save at session end
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=__REPO__/qs-loop.sh save
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
