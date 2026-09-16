@@ -1,0 +1,65 @@
+#!/bin/bash
+# Driver: build rows, show the quickshell carousel, apply the choice.
+#   qs-picker wallpaper [dir]  -> pick an image. Default dir: the current theme
+#                                 folder (state file), else the current wallpaper's
+#                                 parent. On apply the chosen folder becomes current.
+#   qs-picker folder   [base]  -> pick a theme folder (default base: ~/Pictures);
+#                                 selection is persisted to the state file.
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PICKER_DIR="$(dirname "$BIN_DIR")"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/qs-picker/folder.current"
+
+mode="${1:-}"
+if [[ $mode != wallpaper && $mode != folder ]]; then
+  echo "usage: qs-picker <wallpaper|folder> [dir]" >&2
+  exit 1
+fi
+arg="${2:-}"
+
+json="$(mktemp)"
+sel="$(mktemp)"
+donef="$(mktemp)"
+rm -f "$donef"
+trap 'rm -f "$json" "$sel" "$donef"' EXIT
+
+if [[ $mode == wallpaper && -z $arg ]]; then
+  cur="$(noctalia msg wallpaper-get 2>/dev/null | head -1)"
+  default_dir="$(dirname "${cur:-$HOME/Pictures}")"
+  if [[ -f $STATE_FILE ]]; then
+    sf="$(cat "$STATE_FILE" 2>/dev/null)"
+    [[ -n $sf && -d $sf ]] && default_dir="$sf"
+  fi
+  [[ -d $default_dir ]] || default_dir="$HOME/Pictures"
+  arg="$default_dir"
+fi
+
+"$PICKER_DIR/build-rows.sh" "$mode" "$arg" "$json"
+if ! jq -e '.items | length > 0' "$json" >/dev/null 2>&1; then
+  exit 0
+fi
+
+PICKER_JSON="$json" PICKER_SEL="$sel" PICKER_DONE="$donef" quickshell -p "$PICKER_DIR/shell.qml"
+
+i=0
+while [[ ! -e $donef && $i -lt 300 ]]; do sleep 0.01; i=$((i + 1)); done
+
+if [[ -s $sel ]]; then
+  choice="$(<"$sel")"
+  case "$mode" in
+    folder)
+      mkdir -p "$(dirname "$STATE_FILE")"
+      printf '%s\n' "$choice" > "$STATE_FILE"
+      first="$(find -L "$choice" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) -print 2>/dev/null | sort | head -1)"
+      if [[ -n $first ]]; then
+        noctalia msg wallpaper-set "$first"
+      fi
+      ;;
+    wallpaper)
+      noctalia msg wallpaper-set "$choice"
+      mkdir -p "$(dirname "$STATE_FILE")"
+      printf '%s\n' "$(dirname "$choice")" > "$STATE_FILE"
+      ;;
+  esac
+fi

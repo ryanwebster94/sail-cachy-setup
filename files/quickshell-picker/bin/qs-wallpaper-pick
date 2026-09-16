@@ -1,0 +1,4 @@
+#!/bin/bash
+# Wallpaper carousel picker. Optional arg: wallpaper directory to browse.
+dir="${1:-}"
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qs-picker" wallpaper "$dir"

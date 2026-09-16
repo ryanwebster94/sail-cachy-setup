@@ -1,0 +1,179 @@
+#!/bin/bash
+# qs-webapp-install.sh — install the borderless web-app creator for Noctalia/Hyprland.
+#
+#   --check        verify dependencies (no changes)
+#   --install-deps install missing dependencies via sudo pacman
+#   --link-bin     symlink the qs-webapp-* commands into ~/.local/bin
+#   --uninstall    remove what this installer created
+#   (no args)      install the web-app tooling
+set -euo pipefail
+
+WEBAPPS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/webapps"
+BIN_DIR="$WEBAPPS_DIR/bin"
+FLAGS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/chromium-flags.conf"
+DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+LAUNCHER_ENTRY="$DESKTOP_DIR/Install Web App.desktop"
+
+usage() {
+cat <<'USAGE'
+qs-webapp-install — borderless web-app creator for Noctalia/Hyprland
+
+Installs into ~/.config/webapps/bin/ plus a chromium-flags.conf and a
+"Install Web App" entry in the launcher. The setup TUI prompts for a name and
+URL, auto-fetches the site icon, and writes a .desktop launcher that opens the
+site as a borderless Chromium app window (--app= strips tabs/toolbar/omnibox).
+
+Options:
+  --check         list missing dependencies and exit (no changes)
+  --install-deps  run: sudo pacman -S --needed chromium curl jq
+  --link-bin      symlink qs-webapp-* into ~/.local/bin so you can type them
+                  in a terminal (also: fish_add_path ~/.local/bin)
+  --uninstall     remove the webapp tooling (bin dir, flags, launcher entry)
+                  installed web apps themselves are left in place
+USAGE
+}
+
+HARD_DEPS=(chromium curl file jq)
+SOFT_DEPS=(fzf)
+
+check_deps() {
+  local missing=() soft_missing=() cmd
+  for cmd in "${HARD_DEPS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+  for cmd in "${SOFT_DEPS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || soft_missing+=("$cmd")
+  done
+  command -v noctalia >/dev/null 2>&1 || missing+=("noctalia")
+  command -v hyprctl >/dev/null 2>&1 || missing+=("hyprctl")
+
+  if ((${#missing[@]})) || ((${#soft_missing[@]})); then
+    if ((${#missing[@]})); then
+      printf 'Missing (required): %s\n' "${missing[*]}"
+      echo "Install with:  sudo pacman -S --needed chromium curl jq"
+    fi
+    if ((${#soft_missing[@]})); then
+      printf 'Missing (optional): %s\n' "${soft_missing[*]}"
+      echo "  fzf: prettier picker in qs-webapp-remove (falls back to numbered prompt)"
+    fi
+    ((${#missing[@]})) && exit 1
+  else
+    echo "All dependencies present."
+  fi
+}
+
+install_deps() {
+  sudo -v
+  sudo pacman -S --needed --noconfirm chromium curl jq
+}
+
+link_bin() {
+  mkdir -p "$HOME/.local/bin"
+  local s
+  for s in qs-webapp-install qs-webapp-launch qs-webapp-focus qs-webapp-remove qs-webapp-open-tui; do
+    ln -sf "$BIN_DIR/$s" "$HOME/.local/bin/$s"
+  done
+  echo "Linked qs-webapp-* into ~/.local/bin"
+  echo 'Add it to your shell PATH, e.g. in fish:  fish_add_path ~/.local/bin'
+}
+
+install() {
+  mkdir -p "$BIN_DIR"
+
+  emit_install > "$BIN_DIR/qs-webapp-install"
+  emit_launch > "$BIN_DIR/qs-webapp-launch"
+  emit_focus  > "$BIN_DIR/qs-webapp-focus"
+  emit_remove > "$BIN_DIR/qs-webapp-remove"
+  emit_open   > "$BIN_DIR/qs-webapp-open-tui"
+  emit_flags  > "$FLAGS_FILE"
+
+  chmod +x "$BIN_DIR"/*
+
+  mkdir -p "$DESKTOP_DIR"
+  cat > "$LAUNCHER_ENTRY" <<EOF
+[Desktop Entry]
+Version=1.0
+Name=Install Web App
+Comment=Add a web app launcher (opens the setup TUI)
+Exec=$BIN_DIR/qs-webapp-open-tui
+Terminal=false
+Type=Application
+Icon=applications-internet
+StartupNotify=true
+EOF
+  chmod +x "$LAUNCHER_ENTRY"
+  update-desktop-database "$DESKTOP_DIR" &>/dev/null || true
+
+  echo "Installed web-app tooling."
+  echo "  scripts     -> $BIN_DIR"
+  echo "  flags       -> $FLAGS_FILE"
+  echo "  launcher    -> $LAUNCHER_ENTRY"
+  echo
+  echo "Open the setup TUI from the launcher (SUPER + SPACE -> \"Install Web App\"),"
+  echo "or run:  $BIN_DIR/qs-webapp-install"
+  echo
+  echo "For a web-app hotkey, add to customconfig/bindings.lua (dynamic path):"
+  echo '  local wab = os.getenv("HOME") .. "/.config/webapps/bin"'
+  echo "  hl.bind(mainMod .. \" + SHIFT + Y\", hl.dsp.exec_cmd(wab .. \"/qs-webapp-focus 'YouTube' 'https://youtube.com/'\"))"
+  echo
+  echo "Hint: run with --link-bin to also put qs-webapp-* on your PATH."
+}
+
+uninstall() {
+  if [[ -d $WEBAPPS_DIR ]]; then rm -rf "$WEBAPPS_DIR" && echo "Removed: $WEBAPPS_DIR"; fi
+  if [[ -f $FLAGS_FILE ]]; then rm -f "$FLAGS_FILE" && echo "Removed: $FLAGS_FILE"; fi
+  if [[ -f $LAUNCHER_ENTRY ]]; then rm -f "$LAUNCHER_ENTRY" && echo "Removed: $LAUNCHER_ENTRY"; fi
+  local s
+  for s in qs-webapp-install qs-webapp-launch qs-webapp-focus qs-webapp-remove qs-webapp-open-tui; do
+    rm -f "$HOME/.local/bin/$s"
+  done
+  update-desktop-database "$DESKTOP_DIR" &>/dev/null || true
+  echo "Installed web apps (~/.local/share/applications/*.desktop) were left in place."
+}
+
+# ---- embedded assets (base64) ----
+
+emit_install() {
+base64 -d <<'EOAINSTALL'
+@@QS_WEBAPP_INSTALL@@
+EOAINSTALL
+}
+
+emit_launch() {
+base64 -d <<'EOALAUNCH'
+@@QS_WEBAPP_LAUNCH@@
+EOALAUNCH
+}
+
+emit_focus() {
+base64 -d <<'EOAFOCUS'
+@@QS_WEBAPP_FOCUS@@
+EOAFOCUS
+}
+
+emit_remove() {
+base64 -d <<'EOAREMOVE'
+@@QS_WEBAPP_REMOVE@@
+EOAREMOVE
+}
+
+emit_open() {
+base64 -d <<'EOAOPEN'
+@@QS_WEBAPP_OPEN_TUI@@
+EOAOPEN
+}
+
+emit_flags() {
+base64 -d <<'EOAFLAGS'
+@@CHROMIUM_FLAGS@@
+EOAFLAGS
+}
+
+case "${1:-}" in
+  --check) check_deps ;;
+  --install-deps) check_deps; install_deps ;;
+  --link-bin) install; link_bin ;;
+  --uninstall) uninstall ;;
+  --help|-h) usage ;;
+  *) if (( $# == 0 )); then install; else echo "Unknown option: $1" >&2; usage >&2; exit 1; fi ;;
+esac

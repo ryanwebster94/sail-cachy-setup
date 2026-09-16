@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Launch a URL as a borderless web-app window in Chromium (--app= hides the
+# tab strip, toolbar, and omnibox). Used as the Exec target of the generated
+# .desktop launchers and by the focus-or-relaunch helper.
+
+set -e
+
+if (( $# == 0 )); then
+  echo "usage: qs-webapp-launch <url> [extra chromium args...]" >&2
+  exit 1
+fi
+
+url="$1"
+shift
+
+exec setsid chromium --app="$url" "$@"

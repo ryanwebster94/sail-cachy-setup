@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Focus an existing web-app window whose class or title matches <pattern>, or
+# relaunch it via qs-webapp-launch when none is open. Pattern is matched as a
+# word on the class/title, case-insensitively, like omarchy's helper.
+
+set -e
+
+if (( $# < 2 )); then
+  echo "usage: qs-webapp-focus <window-pattern> <url> [extra chromium args...]" >&2
+  exit 1
+fi
+
+pattern="$1"
+shift
+url="$1"
+shift
+
+address=$(hyprctl clients -j | jq -r --arg p "$pattern" \
+  '.[] | select((.class | test("\\b" + $p + "\\b"; "i")) or (.title | test("\\b" + $p + "\\b"; "i"))) | .address' \
+  | head -n1)
+
+if [[ -n $address ]]; then
+  hyprctl dispatch focuswindow "address:$address" >/dev/null
+else
+  exec "$(dirname "$0")/qs-webapp-launch" "$url" "$@"
+fi

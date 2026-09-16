@@ -1,0 +1,161 @@
+#!/bin/bash
+# qs-picker-install.sh — install the dynamic wallpaper + theme-folder carousel picker.
+#
+#   --check        verify dependencies (no changes)
+#   --install-deps install missing dependencies via sudo pacman
+#   --uninstall    remove the picker folder
+#   (no args)      install the picker into $XDG_CONFIG_HOME/quickshell/picker
+#
+# Content below is self-contained: the picker files are embedded and extracted
+# during install. The picker is dynamic — folder listings and thumbnails refresh
+# automatically via content signatures, so dropping images into ~/Pictures (or
+# any subfolder you add) shows up next time the carousel opens.
+set -euo pipefail
+
+PICKER_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/picker"
+BIN_DIR="$PICKER_DIR/bin"
+
+usage() {
+cat <<'USAGE'
+qs-picker-install — dynamic wallpaper + theme-folder carousel for Noctalia/Hyprland
+
+Creates ~/.config/quickshell/picker/ with two pickers:
+
+  Folder ("Themes") switcher   SUPER + SHIFT + CTRL + SPACE
+      Cards of one folder each inside ~/Pictures (its first image is the card).
+      Picking a folder stores it as current and applies that folder's first image.
+
+  Wallpaper switcher           SUPER + CTRL + SPACE
+      Images inside the current folder; applying one sets the wallpaper.
+
+Both regenerate automatically: folder/image lists and thumbnails are cached by
+a content signature, so add/remove/rename any image or folder and the next open
+reflects it. No restart needed.
+
+Options:
+  --check         list missing dependencies and exit (no changes)
+  --install-deps  run: sudo pacman -S --needed quickshell vips imagemagick \
+                    ffmpegthumbnailer jq file
+  --uninstall     remove ~/.config/quickshell/picker/ only
+                  (state/cache from usage are left; binds are never touched)
+
+After install, add these two binds to ~/.config/hypr/customconfig/bindings.lua
+(dynamic path — works for any username):
+
+  local pickerBin = os.getenv("HOME") .. "/.config/quickshell/picker/bin"
+  hl.bind(mainMod .. " + CTRL + SPACE",         hl.dsp.exec_cmd(pickerBin .. "/qs-wallpaper-pick"))
+  hl.bind(mainMod .. " + SHIFT + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-folder-pick"))
+
+then: hyprctl reload
+USAGE
+}
+
+HARD_DEPS=(quickshell vipsthumbnail jq file)
+SOFT_DEPS=(magick ffmpegthumbnailer)
+
+check_deps() {
+  local missing=() soft_missing=() cmd
+  for cmd in "${HARD_DEPS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+  for cmd in "${SOFT_DEPS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || soft_missing+=("$cmd")
+  done
+  command -v noctalia >/dev/null 2>&1 || missing+=("noctalia")
+  command -v hyprctl >/dev/null 2>&1 || missing+=("hyprctl")
+
+  if ((${#missing[@]})) || ((${#soft_missing[@]})); then
+    if ((${#missing[@]})); then
+      printf 'Missing (required): %s\n' "${missing[*]}"
+      echo "Install with:  sudo pacman -S --needed quickshell vips jq file"
+    fi
+    if ((${#soft_missing[@]})); then
+      printf 'Missing (optional): %s\n' "${soft_missing[*]}"
+      echo "  imagemagick: generates folder-card placeholders"
+      echo "  ffmpegthumbnailer: video-frame thumbnails in the wallpaper carousel"
+    fi
+    ((${#missing[@]})) && exit 1
+  else
+    echo "All dependencies present."
+  fi
+}
+
+install_deps() {
+  sudo -v
+  sudo pacman -S --needed --noconfirm quickshell vips imagemagick jq file ffmpegthumbnailer
+}
+
+install() {
+  mkdir -p "$PICKER_DIR" "$BIN_DIR"
+
+  emit_shell_qml > "$PICKER_DIR/shell.qml"
+  emit_build_rows > "$PICKER_DIR/build-rows.sh"
+  emit_qs_picker > "$BIN_DIR/qs-picker"
+  emit_qs_folder_pick > "$BIN_DIR/qs-folder-pick"
+  emit_qs_wallpaper_pick > "$BIN_DIR/qs-wallpaper-pick"
+
+  chmod 644 "$PICKER_DIR/shell.qml"
+  chmod +x "$PICKER_DIR/build-rows.sh" "$BIN_DIR"/*
+
+  echo "Installed picker into: $PICKER_DIR"
+  echo
+  echo "Add these to ~/.config/hypr/customconfig/bindings.lua, then run: hyprctl reload"
+  echo
+  echo '  local pickerBin = os.getenv("HOME") .. "/.config/quickshell/picker/bin"'
+  echo '  hl.bind(mainMod .. " + CTRL + SPACE",         hl.dsp.exec_cmd(pickerBin .. "/qs-wallpaper-pick"))'
+  echo '  hl.bind(mainMod .. " + SHIFT + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-folder-pick"))'
+  echo
+  echo "Browse folders with the folder switcher (default base: ~/Pictures)."
+}
+
+uninstall() {
+  if [[ -d $PICKER_DIR ]]; then
+    rm -rf "$PICKER_DIR"
+    echo "Removed: $PICKER_DIR"
+  else
+    echo "Nothing installed at $PICKER_DIR"
+  fi
+  echo "Binds in customconfig/bindings.lua were not touched."
+}
+
+# ---- embedded assets (base64) ----
+# Each emit_* function prints its file's base64 content; base64 -d decodes it.
+
+emit_shell_qml() {
+base64 -d <<'EOSHELLQML'
+@@SHELL_QML@@
+EOSHELLQML
+}
+
+emit_build_rows() {
+base64 -d <<'EOBUILDROWS'
+@@BUILD_ROWS@@
+EOBUILDROWS
+}
+
+emit_qs_picker() {
+base64 -d <<'EOQSPICKER'
+@@QS_PICKER@@
+EOQSPICKER
+}
+
+emit_qs_folder_pick() {
+base64 -d <<'EOQSFOLDER'
+@@QS_FOLDER_PICK@@
+EOQSFOLDER
+}
+
+emit_qs_wallpaper_pick() {
+base64 -d <<'EOSWALLPAPER'
+@@QS_WALLPAPER_PICK@@
+EOSWALLPAPER
+}
+
+case "${1:-}" in
+  --check) check_deps ;;
+  --install-deps) check_deps; install_deps ;;
+  --uninstall) uninstall ;;
+  --help|-h) usage ;;
+  "") install ;;
+  *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+esac

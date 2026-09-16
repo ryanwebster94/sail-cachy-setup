@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Open the web-app setup TUI in a terminal. Used as the Exec target of the
+# "Install Web App" launcher entry so changing terminals never touches the
+# .desktop file. Override the terminal with TERMINAL=<cmd>.
+
+cmd="$(cd "$(dirname "$0")" && pwd)/qs-webapp-install; echo; read -r -p 'Press Enter to close'"
+
+terminal="${TERMINAL:-}"
+if [[ -z $terminal ]]; then
+  for t in kitty alacritty foot xfce4-terminal konsole gnome-terminal x-terminal-emulator xdg-terminal-exec; do
+    if command -v "$t" >/dev/null 2>&1; then terminal="$t"; break; fi
+  done
+fi
+
+if [[ -z $terminal ]]; then
+  echo "No terminal found. Install one or set TERMINAL=/path/to/your-terminal." >&2
+  exit 1
+fi
+
+case "$(basename "$terminal")" in
+  kitty)          exec "$terminal" --title "Add Web App" -e bash -c "$cmd" ;;
+  alacritty)      exec "$terminal" --title "Add Web App" -e bash -c "$cmd" ;;
+  foot)           exec "$terminal" --title "Add Web App" -e bash -c "$cmd" ;;
+  xfce4-terminal) exec "$terminal" --title "Add Web App" --execute bash -c "$cmd" ;;
+  konsole)        exec "$terminal" --title "Add Web App" -e bash -c "$cmd" ;;
+  gnome-terminal) exec "$terminal" --title "Add Web App" -- bash -c "$cmd" ;;
+  x-terminal-emulator) exec "$terminal" -e bash -c "$cmd" ;;
+  xdg-terminal-exec)  exec "$terminal" bash -c "$cmd" ;;
+  *) exec "$terminal" -e bash -c "$cmd" ;;
+esac

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Theme-folder carousel picker. Optional arg: base directory containing your
+# theme folders (default: ~/Pictures). Pick a folder, then SUPER+CTRL+SPACE
+# browses the images inside that folder.
+base="${1:-}"
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qs-picker" folder "$base"

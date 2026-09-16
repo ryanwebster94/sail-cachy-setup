@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Remove a web-app launcher installed by qs-webapp-install. Indexes the
+# .desktop files that actually point at qs-webapp-launch (rather than
+# reconstructing a path from a name) and offers them through fzf.
+
+set -e
+
+ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+DESKTOP_DIR="$HOME/.local/share/applications"
+
+WEB_APPS=()
+WEB_APP_PATHS=()
+while IFS= read -r -d '' file; do
+  if grep -q '^Exec=.*qs-webapp-launch.*' "$file"; then
+    WEB_APPS+=("$(basename "${file%.desktop}")")
+    WEB_APP_PATHS+=("$file")
+  fi
+done < <(find "$DESKTOP_DIR" -name '*.desktop' -print0 2>/dev/null)
+
+if (( ${#WEB_APPS[@]} == 0 )); then
+  echo "No web apps installed."
+  exit 0
+fi
+
+if (( $# == 0 )); then
+  choice=$(printf '%s\n' "${WEB_APPS[@]}" | sort | fzf --height 12 --prompt="Select web app to remove> ")
+  [[ -n $choice ]] || exit 0
+  APP_NAME="$choice"
+else
+  APP_NAME="$*"
+fi
+
+path_for_web_app() {
+  local wanted="$1" i
+  for i in "${!WEB_APPS[@]}"; do
+    if [[ ${WEB_APPS[$i]} == "$wanted" ]]; then
+      printf '%s\n' "${WEB_APP_PATHS[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+desktop_file=$(path_for_web_app "$APP_NAME")
+[[ -n $desktop_file ]] || { echo "No matching web app: $APP_NAME" >&2; exit 1; }
+
+rm -f "$desktop_file"
+icon_name=$(printf '%s\n' "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')
+rm -f "$ICON_DIR/$icon_name.png" "$ICON_DIR/$APP_NAME.png"
+update-desktop-database "$DESKTOP_DIR" &>/dev/null || true
+
+echo "Removed $APP_NAME."
