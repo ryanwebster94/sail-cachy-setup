@@ -13,3 +13,4 @@ hl.bind(mainMod .. " + SHIFT + Return", hl.dsp.exec_cmd(launchPrefix .. "flatpak
 hl.bind(mainMod .. " + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-wallpaper-pick"))
 hl.bind(mainMod .. " + SHIFT + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-folder-pick"))
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(noctCall .. "panel-toggle session"))
+hl.bind(mainMod .. " + SHIFT + G", hl.dsp.exec_cmd("steam"))
