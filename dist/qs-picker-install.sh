@@ -34,7 +34,7 @@ reflects it. No restart needed.
 
 Options:
   --check         list missing dependencies and exit (no changes)
-  --install-deps  run: sudo pacman -S --needed quickshell vips imagemagick \
+  --install-deps  run: sudo pacman -S --needed quickshell libvips imagemagick \
                     ffmpegthumbnailer jq file
   --uninstall     remove ~/.config/quickshell/picker/ only
                   (state/cache from usage are left; binds are never touched)
@@ -67,7 +67,7 @@ check_deps() {
   if ((${#missing[@]})) || ((${#soft_missing[@]})); then
     if ((${#missing[@]})); then
       printf 'Missing (required): %s\n' "${missing[*]}"
-      echo "Install with:  sudo pacman -S --needed quickshell vips jq file"
+      echo "Install with:  sudo pacman -S --needed quickshell libvips jq file"
     fi
     if ((${#soft_missing[@]})); then
       printf 'Missing (optional): %s\n' "${soft_missing[*]}"
@@ -82,7 +82,7 @@ check_deps() {
 
 install_deps() {
   sudo -v
-  sudo pacman -S --needed --noconfirm quickshell vips imagemagick jq file ffmpegthumbnailer
+  sudo pacman -S --needed --noconfirm quickshell libvips imagemagick jq file ffmpegthumbnailer
 }
 
 install() {

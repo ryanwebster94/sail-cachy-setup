@@ -13,7 +13,7 @@ PICKER_DIR="$CONFIG_HOME/quickshell/picker"
 WEBAPPS_BIN="$CONFIG_HOME/webapps/bin"
 BIN_LINK_DIR="$HOME/.local/bin"
 
-DEPS=(quickshell vips imagemagick ffmpegthumbnailer jq file chromium curl fzf)
+DEPS=(quickshell libvips imagemagick ffmpegthumbnailer jq file chromium curl fzf)
 CMDS=(quickshell vipsthumbnail magick ffmpegthumbnailer jq file chromium curl fzf)
 
 usage() {

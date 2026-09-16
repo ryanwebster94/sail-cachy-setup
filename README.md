@@ -59,4 +59,4 @@ dist/                     # regenerated single-file installers (friend handouts)
 
 ## Requirements
 
-Noctalia + Hyprland (`noctalia` and `hyprctl` on PATH — `setup.sh` refuses to run otherwise). Dependencies: `quickshell vips imagemagick ffmpegthumbnailer jq file chromium curl fzf`. Install via `./setup.sh --install-deps`.
+Noctalia + Hyprland (`noctalia` and `hyprctl` on PATH — `setup.sh` refuses to run otherwise). Dependencies: `quickshell libvips imagemagick ffmpegthumbnailer jq file chromium curl fzf`. Install via `./setup.sh --install-deps`.
