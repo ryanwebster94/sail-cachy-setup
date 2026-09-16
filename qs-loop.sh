@@ -10,7 +10,7 @@
 
 set -uo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/qs-loop"
 LOG="$STATE_DIR/log"
 LOCK="$STATE_DIR/lock"
