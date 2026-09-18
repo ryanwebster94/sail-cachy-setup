@@ -14,3 +14,4 @@ hl.bind(mainMod .. " + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-wallpape
 hl.bind(mainMod .. " + SHIFT + CTRL + SPACE", hl.dsp.exec_cmd(pickerBin .. "/qs-folder-pick"))
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(noctCall .. "panel-toggle session"))
 hl.bind(mainMod .. " + SHIFT + G", hl.dsp.exec_cmd("steam"))
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(os.getenv("HOME") .. "/.config/webapps/bin/qs-webapp-focus apple https://music.apple.com/"))
