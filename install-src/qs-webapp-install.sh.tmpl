@@ -25,7 +25,7 @@ site as a borderless Chromium app window (--app= strips tabs/toolbar/omnibox).
 
 Options:
   --check         list missing dependencies and exit (no changes)
-  --install-deps  run: sudo pacman -S --needed chromium curl jq
+  --install-deps  run: sudo pacman -S --needed chromium curl file jq fzf
   --link-bin      symlink qs-webapp-* into ~/.local/bin so you can type them
                   in a terminal (also: fish_add_path ~/.local/bin)
   --uninstall     remove the webapp tooling (bin dir, flags, launcher entry)
@@ -33,8 +33,8 @@ Options:
 USAGE
 }
 
-HARD_DEPS=(chromium curl file jq)
-SOFT_DEPS=(fzf)
+HARD_DEPS=(chromium curl file jq fzf)
+SOFT_DEPS=()
 
 check_deps() {
   local missing=() soft_missing=() cmd
@@ -50,13 +50,12 @@ check_deps() {
   if ((${#missing[@]})) || ((${#soft_missing[@]})); then
     if ((${#missing[@]})); then
       printf 'Missing (required): %s\n' "${missing[*]}"
-      echo "Install with:  sudo pacman -S --needed chromium curl jq"
+      echo "Install with:  sudo pacman -S --needed chromium curl file jq fzf"
     fi
     if ((${#soft_missing[@]})); then
       printf 'Missing (optional): %s\n' "${soft_missing[*]}"
-      echo "  fzf: prettier picker in qs-webapp-remove (falls back to numbered prompt)"
     fi
-    ((${#missing[@]})) && exit 1
+    if ((${#missing[@]})); then return 1; fi
   else
     echo "All dependencies present."
   fi
@@ -64,7 +63,7 @@ check_deps() {
 
 install_deps() {
   sudo -v
-  sudo pacman -S --needed --noconfirm chromium curl jq
+  sudo pacman -S --needed --noconfirm chromium curl file jq fzf
 }
 
 link_bin() {
@@ -78,6 +77,8 @@ link_bin() {
 }
 
 install() {
+  local launcher_exec
+  launcher_exec="$(desktop_exec_path "$BIN_DIR/qs-webapp-open-tui")"
   mkdir -p "$BIN_DIR"
 
   emit_install > "$BIN_DIR/qs-webapp-install"
@@ -95,7 +96,7 @@ install() {
 Version=1.0
 Name=Install Web App
 Comment=Add a web app launcher (opens the setup TUI)
-Exec=$BIN_DIR/qs-webapp-open-tui
+Exec=$launcher_exec
 Terminal=false
 Type=Application
 Icon=applications-internet
@@ -117,6 +118,17 @@ EOF
   echo "  hl.bind(mainMod .. \" + SHIFT + Y\", hl.dsp.exec_cmd(wab .. \"/qs-webapp-focus 'YouTube' 'https://youtube.com/'\"))"
   echo
   echo "Hint: run with --link-bin to also put qs-webapp-* on your PATH."
+}
+
+desktop_exec_path() {
+  local arg="$1"
+  arg=${arg//\\/\\\\}
+  arg=${arg//\"/\\\"}
+  arg=${arg//\`/\\\`}
+  arg=${arg//\$/\\\$}
+  arg=${arg//%/%%}
+  arg=${arg//\\/\\\\}
+  printf '"%s"' "$arg"
 }
 
 uninstall() {
@@ -171,7 +183,7 @@ EOAFLAGS
 
 case "${1:-}" in
   --check) check_deps ;;
-  --install-deps) check_deps; install_deps ;;
+  --install-deps) install_deps; check_deps ;;
   --link-bin) install; link_bin ;;
   --uninstall) uninstall ;;
   --help|-h) usage ;;

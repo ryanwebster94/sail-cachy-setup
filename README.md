@@ -17,8 +17,8 @@ The repo mirrors the on-disk configuration it manages. `setup.sh` pushes the rep
 | *(generated)* | `Install Web App.desktop` | Launcher entry that opens the web-app install TUI. |
 
 Hotkeys (muscle memory, defined in `bindings.lua`):
-- `SUPER + CTRL + SPACE` — random wallpaper from current folder
-- `SUPER + SHIFT + CTRL + SPACE` — choose folder, then random wallpaper
+- `SUPER + CTRL + SPACE` — choose a wallpaper from the current folder
+- `SUPER + SHIFT + CTRL + SPACE` — choose a folder, then apply its first image
 - `qs-webapp-install` — add a borderless web app (`chromium --app=`)
 
 The carousel's selected outline uses the applied Noctalia theme's primary accent;
@@ -74,6 +74,15 @@ qs-loop once      # my changes out, latest in — one swoop
 
 Safety rails: never force-pushes; offline commits are pushed on the next tick; a same-file conflict aborts cleanly (your commit stays, working tree restored, nothing deleted) and asks you to reconcile manually. Logs live in `~/.local/state/qs-loop/log`; setup output in `~/.local/state/qs-loop/setup.log`.
 
+Automatic sync uses the current branch's configured upstream remote and branch;
+it does not push every branch to `main`. It refuses to capture or deploy while the
+repository has uncommitted edits or an unfinished Git operation, so live-file
+capture cannot overwrite source work. Commit or stash repository edits first.
+Idle `once` runs skip setup when the same revision was already deployed; explicit
+`qs-loop apply` still redeploys it. Push failures return a failure status for the
+service logs. Login apply is enabled for the next login, not started recursively
+from inside its own setup job.
+
 With automation on, the repo is the source of truth: edit live files with confidence, but make sure `qs-loop save` has run (or run `./sync.sh`) before pulling on a second machine with divergent local edits.
 
 ## Layout
@@ -94,3 +103,19 @@ dist/                     # regenerated single-file installers (friend handouts)
 ## Requirements
 
 Noctalia + Hyprland (`noctalia` and `hyprctl` on PATH — `setup.sh` refuses to run otherwise). Dependencies: `quickshell libvips imagemagick ffmpegthumbnailer jq file chromium curl fzf`. Install via `./setup.sh --install-deps`.
+
+## Regression checks
+
+On Linux, with Python 3, Bash, Git, jq, file, flock, and coreutils installed:
+
+```sh
+python3 -m unittest discover -s tests -v
+node tests/test_qml_helpers.js
+```
+
+The Linux tests use temporary directories and local Git remotes. Desktop IPC,
+thumbnail generation, package installation, and user-service calls are mocked;
+no running desktop is required. They cover stale caches, special filenames,
+symlinked commands, installer dependencies, tracked-branch pushes, conflict
+recovery, and avoiding redundant deployments. The Node check exercises the QML
+JavaScript helpers; visual rendering still needs checking in Quickshell.

@@ -7,7 +7,7 @@
 #                                 selection is persisted to the state file.
 set -euo pipefail
 
-BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 PICKER_DIR="$(dirname "$BIN_DIR")"
 STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/qs-picker/folder.current"
 
@@ -25,8 +25,10 @@ rm -f "$donef"
 trap 'rm -f "$json" "$sel" "$donef"' EXIT
 
 if [[ $mode == wallpaper && -z $arg ]]; then
-  cur="$(noctalia msg wallpaper-get 2>/dev/null | head -1)"
-  default_dir="$(dirname "${cur:-$HOME/Pictures}")"
+  cur="$(noctalia msg wallpaper-get 2>/dev/null || true)"
+  cur="${cur%%$'\n'*}"
+  default_dir="$HOME/Pictures"
+  [[ -n $cur ]] && default_dir="$(dirname -- "$cur")"
   if [[ -f $STATE_FILE ]]; then
     sf="$(cat "$STATE_FILE" 2>/dev/null)"
     [[ -n $sf && -d $sf ]] && default_dir="$sf"
@@ -42,19 +44,17 @@ fi
 
 PICKER_JSON="$json" PICKER_SEL="$sel" PICKER_DONE="$donef" quickshell -p "$PICKER_DIR/shell.qml"
 
-i=0
-while [[ ! -e $donef && $i -lt 300 ]]; do sleep 0.01; i=$((i + 1)); done
-
 if [[ -s $sel ]]; then
   choice="$(<"$sel")"
   case "$mode" in
     folder)
-      mkdir -p "$(dirname "$STATE_FILE")"
-      printf '%s\n' "$choice" > "$STATE_FILE"
-      first="$(find -L "$choice" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) -print 2>/dev/null | sort | head -1)"
+      first=""
+      IFS= read -r -d '' first < <(find -L "$choice" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) -print0 2>/dev/null | sort -z) || true
       if [[ -n $first ]]; then
         noctalia msg wallpaper-set "$first"
       fi
+      mkdir -p "$(dirname "$STATE_FILE")"
+      printf '%s\n' "$choice" > "$STATE_FILE"
       ;;
     wallpaper)
       noctalia msg wallpaper-set "$choice"

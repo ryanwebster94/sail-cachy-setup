@@ -3,4 +3,4 @@ Description=qs-loop one-shot sync (save + apply)
 
 [Service]
 Type=oneshot
-ExecStart=__REPO__/qs-loop.sh once
+ExecStart="__REPO__/qs-loop.sh" once

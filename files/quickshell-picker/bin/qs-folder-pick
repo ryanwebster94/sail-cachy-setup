@@ -3,4 +3,4 @@
 # theme folders (default: ~/Pictures). Pick a folder, then SUPER+CTRL+SPACE
 # browses the images inside that folder.
 base="${1:-}"
-exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qs-picker" folder "$base"
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/qs-picker" folder "$base"

@@ -106,6 +106,8 @@ deploy_flags() {
 
 deploy_webapp_launcher() {
     local dst="${XDG_DATA_HOME:-$HOME/.local/share}/applications/Install Web App.desktop"
+    local launcher_exec
+    launcher_exec="$(desktop_exec_path "$WEBAPPS_BIN/qs-webapp-open-tui")"
     say "deploying launcher entry -> $dst"
     mkdir -p "${dst%/*}"
     install -m 644 /dev/stdin "$dst" <<EOF
@@ -113,13 +115,24 @@ deploy_webapp_launcher() {
 Version=1.0
 Name=Install Web App
 Comment=Add a web app launcher (opens the setup TUI)
-Exec=$HOME/.config/webapps/bin/qs-webapp-open-tui
+Exec=$launcher_exec
 Terminal=false
 Type=Application
 Icon=applications-internet
 StartupNotify=true
 EOF
     command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "${dst%/*}" || true
+}
+
+desktop_exec_path() {
+    local arg="$1"
+    arg=${arg//\\/\\\\}
+    arg=${arg//\"/\\\"}
+    arg=${arg//\`/\\\`}
+    arg=${arg//\$/\\\$}
+    arg=${arg//%/%%}
+    arg=${arg//\\/\\\\}
+    printf '"%s"' "$arg"
 }
 
 deploy_bindings() {
@@ -129,7 +142,8 @@ deploy_bindings() {
     if [[ ! -f "$dst" ]]; then
         cp "$REPO_DIR/hypr/customconfig/bindings.lua" "$dst"
     elif ! diff -q "$REPO_DIR/hypr/customconfig/bindings.lua" "$dst" >/dev/null 2>&1; then
-        local bak="$dst.$(date +%Y%m%d.%H%M%S.%N).bak"
+        local bak
+        bak="$dst.$(date +%Y%m%d.%H%M%S.%N).bak"
         cp -p "$dst" "$bak"
         say "previous bindings.lua backed up to $bak"
         cp "$REPO_DIR/hypr/customconfig/bindings.lua" "$dst"
@@ -162,13 +176,21 @@ link_bin() {
 
 install_auto_units() {
     local unit_dir="$CONFIG_HOME/systemd/user"
+    local unit unit_repo="$REPO_DIR"
+    unit_repo=${unit_repo//\\/\\\\}
+    unit_repo=${unit_repo//\"/\\\"}
+    unit_repo=${unit_repo//%/%%}
     say "installing systemd automation units -> $unit_dir"
     mkdir -p "$unit_dir"
     for f in qs-loop.timer qs-loop.service qs-apply.service qs-save.service; do
-        sed "s|__REPO__|$REPO_DIR|g" "$REPO_DIR/systemd/$f.in" > "$unit_dir/$f"
+        unit="$(<"$REPO_DIR/systemd/$f.in")"
+        printf '%s\n' "${unit//__REPO__/"$unit_repo"}" > "$unit_dir/$f"
     done
     systemctl --user daemon-reload
-    systemctl --user enable --now qs-loop.timer qs-apply.service qs-save.service
+    systemctl --user enable qs-loop.timer qs-apply.service qs-save.service
+    # setup.sh is itself called by qs-apply.service: starting that same oneshot
+    # with --now would make its job wait for itself. Enable it for the next login.
+    systemctl --user start qs-loop.timer qs-save.service
 }
 
 remove_auto_units() {
@@ -226,8 +248,8 @@ say "done."
 cat <<EOF
 
 What you have now:
-  SUPER+CTRL+SPACE      random wallpaper from current folder
-  SUPER+SHIFT+CTRL+SPACE choose folder, random wallpaper
+  SUPER+CTRL+SPACE      choose a wallpaper from current folder
+  SUPER+SHIFT+CTRL+SPACE choose folder, apply its first image
   qs-webapp-install      add a web app (launched borderless via chromium --app)
   qs-loop                one-swoop sync: save (push my changes) + apply (pull + deploy)
 

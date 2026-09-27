@@ -6,8 +6,9 @@
 
 set -e
 
-ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
-DESKTOP_DIR="$HOME/.local/share/applications"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+ICON_DIR="$DATA_DIR/icons/hicolor/256x256/apps"
+DESKTOP_DIR="$DATA_DIR/applications"
 
 WEB_APPS=()
 WEB_APP_PATHS=()
@@ -24,7 +25,11 @@ if (( ${#WEB_APPS[@]} == 0 )); then
 fi
 
 if (( $# == 0 )); then
-  choice=$(printf '%s\n' "${WEB_APPS[@]}" | sort | fzf --height 12 --prompt="Select web app to remove> ")
+  choice=$(printf '%s\n' "${WEB_APPS[@]}" | sort | fzf --height 12 --prompt="Select web app to remove> ") || {
+    status=$?
+    (( status == 1 || status == 130 )) && exit 0
+    exit "$status"
+  }
   [[ -n $choice ]] || exit 0
   APP_NAME="$choice"
 else
@@ -42,12 +47,13 @@ path_for_web_app() {
   return 1
 }
 
-desktop_file=$(path_for_web_app "$APP_NAME")
-[[ -n $desktop_file ]] || { echo "No matching web app: $APP_NAME" >&2; exit 1; }
+desktop_file=$(path_for_web_app "$APP_NAME") || { echo "No matching web app: $APP_NAME" >&2; exit 1; }
 
 rm -f "$desktop_file"
-icon_name=$(printf '%s\n' "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')
-rm -f "$ICON_DIR/$icon_name.png" "$ICON_DIR/$APP_NAME.png"
+icon_name="qs-webapp-$(printf '%s' "$APP_NAME" | sha256sum | cut -d' ' -f1)"
+# Only remove this app's owned icons, including local SVG/JPEG files. Legacy
+# unprefixed icons may be shared by other launchers, so leave those intact.
+rm -f -- "$ICON_DIR/$icon_name".*
 update-desktop-database "$DESKTOP_DIR" &>/dev/null || true
 
 echo "Removed $APP_NAME."

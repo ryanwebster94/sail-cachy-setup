@@ -79,7 +79,7 @@ PanelWindow {
   readonly property int bottomChromeHeight: 74
 
   function fileUrl(path) {
-    return "file://" + path
+    return "file://" + encodeURI(path).replace(/#/g, "%23").replace(/\?/g, "%3F")
   }
 
   function alpha(color, value) {
@@ -102,7 +102,7 @@ PanelWindow {
         label: String(items[i].label || "")
       })
     }
-    return out
+    return { items: out, selected: String(data.selected || "") }
   }
 
   function currentPath() {
@@ -168,9 +168,10 @@ PanelWindow {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var images = root.parseRows(String(text || ""))
+        var data = root.parseRows(String(text || ""))
+        var images = data.items
         root.imageArray = images
-        root.selectedIndex = root.indexForSelected(images, root.desiredSelected)
+        root.selectedIndex = root.indexForSelected(images, data.selected)
         root.imagesLoaded = images.length > 0
         root.opened = true
         root.layoutSettled = true
@@ -183,8 +184,6 @@ PanelWindow {
       }
     }
   }
-
-  property string desiredSelected: ""
 
   function start() {
     root.opened = true
@@ -325,7 +324,7 @@ Component.onCompleted: startTimer.running = true
                   anchors.fill: parent
                   source: item.sourceActivated && item.thumbnailPath ? root.fileUrl(item.thumbnailPath) : ""
                   fillMode: Image.PreserveAspectCrop
-                  asynchronous: false
+                  asynchronous: true
                   cache: true
                   smooth: true
                 }

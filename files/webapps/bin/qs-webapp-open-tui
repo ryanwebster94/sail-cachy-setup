@@ -4,7 +4,8 @@
 # "Install Web App" launcher entry so changing terminals never touches the
 # .desktop file. Override the terminal with TERMINAL=<cmd>.
 
-cmd="$(cd "$(dirname "$0")" && pwd)/qs-webapp-install; echo; read -r -p 'Press Enter to close'"
+script="$(dirname "$(readlink -f "$0")")/qs-webapp-install"
+printf -v cmd "%q; echo; read -r -p 'Press Enter to close'" "$script"
 
 terminal="${TERMINAL:-}"
 if [[ -z $terminal ]]; then

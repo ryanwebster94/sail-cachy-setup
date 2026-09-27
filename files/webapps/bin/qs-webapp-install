@@ -8,19 +8,14 @@
 
 set -e
 
-ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
-DESKTOP_DIR="$HOME/.local/share/applications"
-LAUNCHER_SCRIPT="$(cd "$(dirname "$0")" && pwd)/qs-webapp-launch"
-
-safe_icon_name() {
-  printf '%s\n' "$1" \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//'
-}
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+ICON_DIR="$DATA_DIR/icons/hicolor/256x256/apps"
+DESKTOP_DIR="$DATA_DIR/applications"
+LAUNCHER_SCRIPT="$(dirname "$(readlink -f "$0")")/qs-webapp-launch"
 
 require_plain_name() {
-  if [[ $1 == */* ]]; then
-    echo "App name cannot contain '/': $1" >&2
+  if [[ $1 == */* || $1 =~ [[:cntrl:]] ]]; then
+    echo "App name cannot contain '/' or control characters." >&2
     exit 1
   fi
   if [[ -z $1 ]]; then
@@ -45,7 +40,7 @@ require_http_url() {
     echo "Error: web app URL must not contain whitespace." >&2
     exit 1
   fi
-  if [[ ! ${url,,} =~ ^https?:// ]]; then
+  if [[ ! ${url,,} =~ ^https?://[^/?#]+ ]]; then
     echo "Error: web app URL must be http or https." >&2
     exit 1
   fi
@@ -100,7 +95,7 @@ desktop_exec_arg() {
 }
 
 INTERACTIVE_MODE=false
-if (( $# < 3 )); then
+if (( $# == 0 )); then
   INTERACTIVE_MODE=true
   echo -e "\nLet's create a web app you can start from the launcher.\n"
   read -rp "Name> " APP_NAME
@@ -110,20 +105,24 @@ if (( $# < 3 )); then
   require_http_url "$APP_URL"
   ICON_REF=""
 else
+  if (( $# < 2 )); then
+    echo "usage: qs-webapp-install <name> <url> [icon] [extra chromium args...]" >&2
+    exit 1
+  fi
   APP_NAME="$1"
   APP_URL=$(normalize_webapp_url "$2")
   require_http_url "$APP_URL"
-  ICON_REF="$3"
-  EXTRA_ARGS="${4:-}" # Optional extra chromium args, appended to Exec
+  ICON_REF="${3:-}"
 fi
 require_plain_name "$APP_NAME"
 
 mkdir -p "$ICON_DIR" "$DESKTOP_DIR"
-ICON_VALUE=$(safe_icon_name "$APP_NAME")
+# Names like "Example!" and "Example?" must not overwrite each other's icons.
+ICON_VALUE="qs-webapp-$(printf '%s' "$APP_NAME" | sha256sum | cut -d' ' -f1)"
 
 if [[ -z $ICON_REF ]]; then
   if fetch_site_icon "$APP_URL" "$ICON_DIR/$ICON_VALUE.png"; then
-    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" &>/dev/null || true
+    gtk-update-icon-cache "$DATA_DIR/icons/hicolor" &>/dev/null || true
   elif [[ $INTERACTIVE_MODE == "true" ]]; then
     read -rp "Icon URL/name> " ICON_REF
     if [[ -z $ICON_REF ]]; then
@@ -139,19 +138,22 @@ if [[ -n $ICON_REF ]]; then
   if [[ $ICON_REF =~ ^https?:// ]]; then
     download_icon "$ICON_REF" "$ICON_DIR/$ICON_VALUE.png" \
       || { echo "Error: failed to download icon." >&2; exit 1; }
-    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" &>/dev/null || true
+    gtk-update-icon-cache "$DATA_DIR/icons/hicolor" &>/dev/null || true
   elif [[ -f $ICON_REF ]]; then
     ext="${ICON_REF##*.}"
     [[ $ext == "$ICON_REF" ]] && ext="png"
     cp "$ICON_REF" "$ICON_DIR/$ICON_VALUE.$ext"
-    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" &>/dev/null || true
+    gtk-update-icon-cache "$DATA_DIR/icons/hicolor" &>/dev/null || true
   else
     ICON_VALUE="$ICON_REF" # Existing icon name in the theme
   fi
 fi
 
 DESKTOP_FILE="$DESKTOP_DIR/$APP_NAME.desktop"
-exec_line="$LAUNCHER_SCRIPT $(desktop_exec_arg "$APP_URL")${EXTRA_ARGS:+ $EXTRA_ARGS}"
+exec_line="$(desktop_exec_arg "$LAUNCHER_SCRIPT") $(desktop_exec_arg "$APP_URL")"
+if (( $# > 3 )); then
+  for arg in "${@:4}"; do exec_line+=" $(desktop_exec_arg "$arg")"; done
+fi
 
 {
   printf '[Desktop Entry]\nVersion=1.0\nName=%s\nComment=%s\nExec=%s\n' \
