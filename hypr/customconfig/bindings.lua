@@ -20,3 +20,6 @@ hl.bind(mainMod .. " + SHIFT + CTRL + SPACE", hl.dsp.exec_cmd(shellQuote(pickerB
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(noctCall .. "panel-toggle session"))
 hl.bind(mainMod .. " + SHIFT + G", hl.dsp.exec_cmd("steam"))
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(shellQuote(configHome .. "/webapps/bin/qs-webapp-focus") .. " apple https://music.apple.com/"))
+
+-- Theme-following window borders (repo-managed companion file).
+pcall(function() require("customconfig.theme-borders") end)
