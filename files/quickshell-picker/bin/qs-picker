@@ -40,6 +40,42 @@ if ! jq -e '.items | length > 0' "$json" >/dev/null 2>&1; then
   exit 0
 fi
 
+# Theme-following picker chrome: inject the live Noctalia wallpaper palette
+# as .theme {primary, on_surface, outline_variant} for shell.qml. Cached per
+# wallpaper+mtime+scheme (generation takes ~1s). Silent no-op on any failure
+# (non-wallpaper color source, missing noctalia, bad output) — shell.qml then
+# keeps its built-in fallback colors.
+inject_theme() {
+  local scheme_info wall scheme src cache_dir key cache_file tmp
+  scheme_info="$(noctalia msg color-scheme-get 2>/dev/null | head -1)" || return 0
+  src="${scheme_info%% *}"; scheme="${scheme_info#* }"
+  [[ "$src" == wallpaper && -n "$scheme" ]] || return 0
+  wall="$(noctalia msg wallpaper-get 2>/dev/null | head -1)" || return 0
+  [[ -n "$wall" && -f "$wall" ]] || return 0
+  cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/qs-picker"
+  mkdir -p "$cache_dir" 2>/dev/null || return 0
+  key="$(printf '%s|%s|%s' "$wall" "$scheme" "$(stat -c %Y "$wall" 2>/dev/null)" | sha256sum | cut -d' ' -f1)"
+  cache_file="$cache_dir/theme-${key:0:16}.json"
+  if [[ ! -s "$cache_file" ]]; then
+    tmp="$(mktemp)" || return 0
+    if noctalia theme "$wall" --scheme "$scheme" --dark -o "$tmp" >/dev/null 2>&1 \
+      && jq -e '.primary | test("^#[0-9a-fA-F]{6}$")' "$tmp" >/dev/null 2>&1; then
+      mv "$tmp" "$cache_file"
+    else
+      rm -f "$tmp"
+      return 0
+    fi
+  fi
+  tmp="$(mktemp)" || return 0
+  if jq -s '.[0] * {theme: .[1]}' "$json" \
+      <(jq '{primary, on_surface, outline_variant}' "$cache_file") > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$json"
+  else
+    rm -f "$tmp"
+  fi
+}
+inject_theme
+
 PICKER_JSON="$json" PICKER_SEL="$sel" PICKER_DONE="$donef" quickshell -p "$PICKER_DIR/shell.qml"
 
 i=0

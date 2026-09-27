@@ -1,5 +1,8 @@
 // Standalone Quickshell carousel picker (omarchy image-picker style).
 // Driven by a JSON file (env PICKER_JSON) with { items:[{path,thumb,label}], selected:<path> }.
+// The driver may also inject theme:{primary,on_surface,outline_variant} from the live
+// Noctalia wallpaper palette; when present the picker chrome follows the theme,
+// otherwise the built-in fallback colors below are used.
 // On Enter the selected path is written to PICKER_SEL and PICKER_DONE is touched, then the
 // process quits. On Esc/cancel only PICKER_DONE is touched. The calling script applies the result.
 
@@ -32,10 +35,12 @@ PanelWindow {
   property bool layoutSettled: false
 
   readonly property color dimColor: "#000000"
-  readonly property color foreground: "#c0caf5"
   readonly property color scrim: Qt.rgba(0.06, 0.06, 0.09, 0.72)
-  readonly property color selectedBorder: "#7aa2f7"
-  readonly property color unselectedBorder: "#3b4261"
+  // Picker chrome: defaults below, overridden by applyTheme() when the
+  // driver injects the live Noctalia palette into the JSON.
+  property color foreground: "#c0caf5"
+  property color selectedBorder: "#7aa2f7"
+  property color unselectedBorder: "#3b4261"
 
   readonly property int expandedWidth: 768
   readonly property int expandedHeight: 432
@@ -55,6 +60,19 @@ PanelWindow {
 
   function shellQuote(s) {
     return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
+  function isHexColor(s) {
+    return typeof s === "string" && /^#[0-9a-fA-F]{6}$/.test(s)
+  }
+
+  function applyTheme(text) {
+    var data = {}
+    try { data = JSON.parse(text) || {} } catch (e) { return }
+    var theme = data.theme || {}
+    if (isHexColor(theme.primary)) root.selectedBorder = theme.primary
+    if (isHexColor(theme.outline_variant)) root.unselectedBorder = theme.outline_variant
+    if (isHexColor(theme.on_surface)) root.foreground = theme.on_surface
   }
 
   function parseRows(text) {
@@ -135,6 +153,7 @@ PanelWindow {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        root.applyTheme(String(text || ""))
         var images = root.parseRows(String(text || ""))
         root.imageArray = images
         root.selectedIndex = root.indexForSelected(images, root.desiredSelected)
