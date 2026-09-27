@@ -125,6 +125,35 @@ deploy_bindings() {
     fi
 }
 
+deploy_theme_borders() {
+    local dst="$CONFIG_HOME/hypr/customconfig/theme-borders.lua"
+    say "deploying theme-borders.lua"
+    mkdir -p "${dst%/*}"
+    if [[ ! -f "$dst" ]]; then
+        cp "$REPO_DIR/hypr/customconfig/theme-borders.lua" "$dst"
+    elif ! diff -q "$REPO_DIR/hypr/customconfig/theme-borders.lua" "$dst" >/dev/null 2>&1; then
+        local bak="$dst.$(date +%Y%m%d.%H%M%S.%N).bak"
+        cp -p "$dst" "$bak"
+        say "previous theme-borders.lua backed up to $bak"
+        cp "$REPO_DIR/hypr/customconfig/theme-borders.lua" "$dst"
+    fi
+}
+
+ensure_hyprland_template() {
+    # Window borders follow the wallpaper via Noctalia's builtin `hyprland`
+    # theme template (regenerates ~/.config/hypr/noctalia.lua on every
+    # wallpaper switch). Additive only: adds the id where absent, else no-op.
+    local f
+    for f in "$CONFIG_HOME/noctalia/config.toml" "$STATE_HOME/noctalia/settings.toml"; do
+        [[ -f "$f" ]] || continue
+        if grep -q 'builtin_ids' "$f" && ! grep -q '"hyprland"' "$f"; then
+            say "enabling hyprland theme template in $f"
+            sed -i 's/builtin_ids = \[ /builtin_ids = [ "hyprland", /' "$f"
+        fi
+    done
+    noctalia msg templates-apply >/dev/null 2>&1 || warn "templates-apply failed (borders apply on next wallpaper switch)"
+}
+
 deploy_fish_line() {
     local fish="$CONFIG_HOME/fish/config.fish"
     local line; line="$(cat "$REPO_DIR/config/fish.path.line")"
@@ -201,6 +230,8 @@ deploy_webapps
 deploy_flags
 deploy_webapp_launcher
 deploy_bindings
+deploy_theme_borders
+ensure_hyprland_template
 deploy_fish_line
 ((LINK_BIN)) && link_bin
 ((AUTO)) && install_auto_units

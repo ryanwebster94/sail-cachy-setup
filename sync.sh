@@ -33,6 +33,10 @@ say "capturing bindings.lua"
 find "$CONFIG_HOME/hypr/customconfig" -maxdepth 1 -name 'bindings.lua' -not -name '*.bak' -exec \
     cp {} "$REPO_DIR/hypr/customconfig/bindings.lua" \;
 
+say "capturing theme-borders.lua"
+find "$CONFIG_HOME/hypr/customconfig" -maxdepth 1 -name 'theme-borders.lua' -not -name '*.bak' -exec \
+    cp {} "$REPO_DIR/hypr/customconfig/theme-borders.lua" \;
+
 # --- 2. regenerate the single-file installers ------------------------------
 
 b64() { base64 -w0 "$1"; }

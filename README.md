@@ -9,6 +9,7 @@ The repo mirrors the on-disk configuration it manages. `setup.sh` pushes the rep
 | Repo path | Deploys to | Notes |
 |---|---|---|
 | `hypr/customconfig/bindings.lua` | `~/.config/hypr/customconfig/bindings.lua` | Whole file. Replaced with a timestamped backup when it differs. |
+| `hypr/customconfig/theme-borders.lua` | `~/.config/hypr/customconfig/theme-borders.lua` | Re-applies Noctalia's wallpaper palette over the hardcoded Cachy borders in Noctalia-managed `config/decorations.lua`. Same backup rule as bindings. |
 | `config/chromium-flags.conf` | `~/.config/chromium-flags.conf` | Wayland + keyring flags for borderless web apps. |
 | `config/fish.path.line` | appended to `~/.config/fish/config.fish` | Adds `~/.local/bin` to PATH (only if absent). |
 | `files/quickshell-picker/` | `~/.config/quickshell/picker/` | Wallpaper / theme-folder carousel picker + scripts. |
@@ -41,7 +42,7 @@ The `install-src/` templates let `sync.sh` re-embed the live sources into the si
 
 ### Scope and safety
 
-- **Ours vs Noctalia's:** this repo only manages `customconfig/`, the picker, web-app tooling, chromium flags, and one PATH line. Noctalia's own `config/` tree (monitors, environment, core binds) is left machine-local, so a laptop and a gaming rig with different panels/GPUs never get clobbered.
+- **Ours vs Noctalia's:** this repo only manages `customconfig/`, the picker, web-app tooling, chromium flags, and one PATH line. Noctalia's own `config/` tree (monitors, environment, core binds) is left machine-local, so a laptop and a gaming rig with different panels/GPUs never get clobbered. One deliberate exception: `setup.sh` adds the `hyprland` id to Noctalia's theme-template `builtin_ids` (both `config.toml` and state `settings.toml`) so window borders regenerate from the wallpaper palette — additive, idempotent, never removes anything.
 - **Additive only:** installs packages, never purges them; backs up before replacing; your personal folders, games, and apps are untouched.
 - **Last-write-wins:** whole files sync cleanly one-at-a-time. The safe rhythm is sync → commit → pull + `setup.sh` on the other machine.
 
@@ -70,7 +71,7 @@ sync.sh                   # capture: machine -> repo (+ installer regen)
 qs-loop.sh                # one-swoop save/apply sync (installed as `qs-loop`)
 systemd/                  # unit templates (timer, login apply, shutdown save)
 config/                   # chromium-flags.conf, fish.path.line
-hypr/customconfig/        # your bindings.lua (the whole file)
+hypr/customconfig/        # your bindings.lua + theme-borders.lua (whole files)
 files/quickshell-picker/  # live picker sources
 files/webapps/            # live web-app scripts
 install-src/              # installer templates for sync.sh regen
