@@ -12,6 +12,7 @@ The repo mirrors the on-disk configuration it manages. `setup.sh` pushes the rep
 | `config/chromium-flags.conf` | `~/.config/chromium-flags.conf` | Wayland + keyring flags for borderless web apps. |
 | `config/fish.path.line` | appended to `~/.config/fish/config.fish` | Adds `~/.local/bin` to PATH (only if absent). |
 | `files/quickshell-picker/` | `~/.config/quickshell/picker/` | Wallpaper / theme-folder carousel picker + scripts. |
+| `config/noctalia-qs-picker.toml` | `~/.config/noctalia/qs-picker.toml` | Exports the applied theme's colors for the picker. |
 | `files/webapps/` | `~/.config/webapps/bin/` | Web app install / launch / focus / remove tooling. |
 | *(generated)* | `Install Web App.desktop` | Launcher entry that opens the web-app install TUI. |
 
@@ -19,6 +20,19 @@ Hotkeys (muscle memory, defined in `bindings.lua`):
 - `SUPER + CTRL + SPACE` — random wallpaper from current folder
 - `SUPER + SHIFT + CTRL + SPACE` — choose folder, then random wallpaper
 - `qs-webapp-install` — add a borderless web app (`chromium --app=`)
+
+The carousel's selected outline uses the applied Noctalia theme's primary accent;
+inactive outlines and labels use its outline and text colors. Both hotkey pickers
+load the current palette on opening and follow changes while open. Highlighting a
+folder is only a preview: its wallpaper/theme takes effect after Enter.
+
+`setup.sh` (and the standalone picker installer) registers a Noctalia v5 user
+template that writes `quickshell/picker/colors.json`. The picker watches that file
+and retains the last valid colors during updates; before a palette is available it
+uses neutral colors. `XDG_CONFIG_HOME` and `NOCTALIA_CONFIG_HOME` are respected.
+The export follows Noctalia's app theme mode (`theme.mode`), as other external apps
+do. A separately pinned `theme.shell_mode` does not change exported colors.
+See [Noctalia user templates](https://docs.noctalia.dev/noctalia/theming/app-theming/#user-templates).
 
 ## Workflow
 
@@ -41,7 +55,7 @@ The `install-src/` templates let `sync.sh` re-embed the live sources into the si
 
 ### Scope and safety
 
-- **Ours vs Noctalia's:** this repo only manages `customconfig/`, the picker, web-app tooling, chromium flags, and one PATH line. Noctalia's own `config/` tree (monitors, environment, core binds) is left machine-local, so a laptop and a gaming rig with different panels/GPUs never get clobbered.
+- **Ours vs Noctalia's:** this repo manages `customconfig/`, the picker, its dedicated `noctalia/qs-picker.toml` theme integration, web-app tooling, chromium flags, and one PATH line. Other Noctalia settings and machine-specific monitors, environment, and core binds stay local.
 - **Additive only:** installs packages, never purges them; backs up before replacing; your personal folders, games, and apps are untouched.
 - **Last-write-wins:** whole files sync cleanly one-at-a-time. The safe rhythm is sync → commit → pull + `setup.sh` on the other machine.
 

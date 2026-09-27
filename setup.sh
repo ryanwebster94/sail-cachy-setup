@@ -7,6 +7,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+NOCTALIA_DIR="${NOCTALIA_CONFIG_HOME:-$CONFIG_HOME}/noctalia"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 
 PICKER_DIR="$CONFIG_HOME/quickshell/picker"
@@ -70,6 +71,9 @@ install_deps() {
 
 deploy_picker() {
     local src="$REPO_DIR/files/quickshell-picker"
+    local theme_changed=0
+    cmp -s "$src/colors.json.tmpl" "$PICKER_DIR/colors.json.tmpl" || theme_changed=1
+    cmp -s "$REPO_DIR/config/noctalia-qs-picker.toml" "$NOCTALIA_DIR/qs-picker.toml" || theme_changed=1
     say "deploying wallpaper picker -> $PICKER_DIR"
     mkdir -p "$PICKER_DIR/bin"
     install -m 644 "$src/shell.qml"     "$PICKER_DIR/shell.qml"
@@ -77,6 +81,13 @@ deploy_picker() {
     for f in qs-picker qs-folder-pick qs-wallpaper-pick; do
         install -m 755 "$src/bin/$f" "$PICKER_DIR/bin/$f"
     done
+    install -m 644 "$src/colors.json.tmpl" "$PICKER_DIR/colors.json.tmpl"
+    mkdir -p "$NOCTALIA_DIR"
+    install -m 644 "$REPO_DIR/config/noctalia-qs-picker.toml" "$NOCTALIA_DIR/qs-picker.toml"
+    if ((theme_changed)); then
+        noctalia msg config-reload >/dev/null && noctalia msg templates-apply >/dev/null \
+            || warn "picker palette will be generated when Noctalia next loads its config"
+    fi
 }
 
 deploy_webapps() {
@@ -172,6 +183,7 @@ uninstall() {
     warn "removing picker, web app tooling, flags, launcher entry, automation, and qs-* symlinks"
     remove_auto_units
     rm -rf "$PICKER_DIR" "$WEBAPPS_BIN"
+    rm -f "$NOCTALIA_DIR/qs-picker.toml"
     rm -f "$CONFIG_HOME/chromium-flags.conf"
     rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/Install Web App.desktop"
     rm -f "$BIN_LINK_DIR"/qs-picker "$BIN_LINK_DIR"/qs-folder-pick "$BIN_LINK_DIR"/qs-wallpaper-pick \

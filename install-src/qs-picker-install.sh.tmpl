@@ -13,6 +13,7 @@
 set -euo pipefail
 
 PICKER_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/picker"
+NOCTALIA_DIR="${NOCTALIA_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}/noctalia"
 BIN_DIR="$PICKER_DIR/bin"
 
 usage() {
@@ -31,12 +32,14 @@ Creates ~/.config/quickshell/picker/ with two pickers:
 Both regenerate automatically: folder/image lists and thumbnails are cached by
 a content signature, so add/remove/rename any image or folder and the next open
 reflects it. No restart needed.
+The selected outline follows Noctalia's active theme accent. Installation also
+adds a dedicated noctalia/qs-picker.toml palette-export template.
 
 Options:
   --check         list missing dependencies and exit (no changes)
   --install-deps  run: sudo pacman -S --needed quickshell libvips imagemagick \
                     ffmpegthumbnailer jq file
-  --uninstall     remove ~/.config/quickshell/picker/ only
+  --uninstall     remove the picker and its noctalia/qs-picker.toml integration
                   (state/cache from usage are left; binds are never touched)
 
 After install, add these two binds to ~/.config/hypr/customconfig/bindings.lua
@@ -86,16 +89,20 @@ install_deps() {
 }
 
 install() {
-  mkdir -p "$PICKER_DIR" "$BIN_DIR"
+  mkdir -p "$PICKER_DIR" "$BIN_DIR" "$NOCTALIA_DIR"
 
   emit_shell_qml > "$PICKER_DIR/shell.qml"
   emit_build_rows > "$PICKER_DIR/build-rows.sh"
   emit_qs_picker > "$BIN_DIR/qs-picker"
   emit_qs_folder_pick > "$BIN_DIR/qs-folder-pick"
   emit_qs_wallpaper_pick > "$BIN_DIR/qs-wallpaper-pick"
+  emit_picker_colors > "$PICKER_DIR/colors.json.tmpl"
+  emit_picker_theme_config > "$NOCTALIA_DIR/qs-picker.toml"
 
   chmod 644 "$PICKER_DIR/shell.qml"
   chmod +x "$PICKER_DIR/build-rows.sh" "$BIN_DIR"/*
+  noctalia msg config-reload >/dev/null && noctalia msg templates-apply >/dev/null \
+    || echo "Palette will be generated when Noctalia next loads its config." >&2
 
   echo "Installed picker into: $PICKER_DIR"
   echo
@@ -109,6 +116,7 @@ install() {
 }
 
 uninstall() {
+  rm -f "$NOCTALIA_DIR/qs-picker.toml"
   if [[ -d $PICKER_DIR ]]; then
     rm -rf "$PICKER_DIR"
     echo "Removed: $PICKER_DIR"
@@ -120,6 +128,18 @@ uninstall() {
 
 # ---- embedded assets (base64) ----
 # Each emit_* function prints its file's base64 content; base64 -d decodes it.
+
+emit_picker_colors() {
+base64 -d <<'EOPICKERCOLORS'
+@@PICKER_COLORS@@
+EOPICKERCOLORS
+}
+
+emit_picker_theme_config() {
+base64 -d <<'EOPICKERTHEME'
+@@PICKER_THEME_CONFIG@@
+EOPICKERTHEME
+}
 
 emit_shell_qml() {
 base64 -d <<'EOSHELLQML'

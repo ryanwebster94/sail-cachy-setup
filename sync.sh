@@ -8,6 +8,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+NOCTALIA_DIR="${NOCTALIA_CONFIG_HOME:-$CONFIG_HOME}/noctalia"
 
 say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mWARN\033[0m %s\n' "$*"; }
@@ -16,6 +17,13 @@ warn() { printf '\033[1;33mWARN\033[0m %s\n' "$*"; }
 
 say "capturing wallpaper picker files"
 install -m 644 "$CONFIG_HOME/quickshell/picker/shell.qml"     "$REPO_DIR/files/quickshell-picker/shell.qml"
+# Older installs do not have the theme bridge until setup.sh has run once.
+if [[ -f "$CONFIG_HOME/quickshell/picker/colors.json.tmpl" ]]; then
+    install -m 644 "$CONFIG_HOME/quickshell/picker/colors.json.tmpl" "$REPO_DIR/files/quickshell-picker/colors.json.tmpl"
+fi
+if [[ -f "$NOCTALIA_DIR/qs-picker.toml" ]]; then
+    install -m 644 "$NOCTALIA_DIR/qs-picker.toml" "$REPO_DIR/config/noctalia-qs-picker.toml"
+fi
 install -m 755 "$CONFIG_HOME/quickshell/picker/build-rows.sh" "$REPO_DIR/files/quickshell-picker/build-rows.sh"
 for f in qs-picker qs-folder-pick qs-wallpaper-pick; do
     install -m 755 "$CONFIG_HOME/quickshell/picker/bin/$f" "$REPO_DIR/files/quickshell-picker/bin/$f"
@@ -44,6 +52,8 @@ fill_installer() {
     while IFS= read -r line || [[ -n "$line" ]]; do
         case "$line" in
             '@@SHELL_QML@@')        b64 "$REPO_DIR/files/quickshell-picker/shell.qml" ;;
+            '@@PICKER_COLORS@@')    b64 "$REPO_DIR/files/quickshell-picker/colors.json.tmpl" ;;
+            '@@PICKER_THEME_CONFIG@@') b64 "$REPO_DIR/config/noctalia-qs-picker.toml" ;;
             '@@BUILD_ROWS@@')       b64 "$REPO_DIR/files/quickshell-picker/build-rows.sh" ;;
             '@@QS_PICKER@@')        b64 "$REPO_DIR/files/quickshell-picker/bin/qs-picker" ;;
             '@@QS_FOLDER_PICK@@')   b64 "$REPO_DIR/files/quickshell-picker/bin/qs-folder-pick" ;;

@@ -1,0 +1,4 @@
+# Managed by sail-cachy-setup / qs-picker-install.
+[theme.templates.user.qs_picker]
+input_path = "$XDG_CONFIG_HOME/quickshell/picker/colors.json.tmpl"
+output_path = "$XDG_CONFIG_HOME/quickshell/picker/colors.json"

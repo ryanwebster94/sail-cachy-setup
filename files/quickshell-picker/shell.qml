@@ -21,6 +21,7 @@ PanelWindow {
   exclusionMode: ExclusionMode.Ignore
 
   readonly property string home: Quickshell.env("HOME")
+  readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || home + "/.config"
   readonly property string jsonFile: Quickshell.env("PICKER_JSON")
   readonly property string selectionFile: Quickshell.env("PICKER_SEL")
   readonly property string doneFile: Quickshell.env("PICKER_DONE")
@@ -32,10 +33,42 @@ PanelWindow {
   property bool layoutSettled: false
 
   readonly property color dimColor: "#000000"
-  readonly property color foreground: "#c0caf5"
+  property var themeColors: ({})
+  readonly property color foreground: themeColors.foreground || "#eeeeee"
   readonly property color scrim: Qt.rgba(0.06, 0.06, 0.09, 0.72)
-  readonly property color selectedBorder: "#7aa2f7"
-  readonly property color unselectedBorder: "#3b4261"
+  readonly property color selectedBorder: themeColors.selectedBorder || "#eeeeee"
+  readonly property color unselectedBorder: themeColors.unselectedBorder || "#666666"
+
+  // Noctalia renders these roles whenever the applied palette/mode changes.
+  // Keep the last complete palette during partial writes or invalid output.
+  function loadTheme(text) {
+    try {
+      var colors = JSON.parse(text)
+      var roles = ["selectedBorder", "unselectedBorder", "foreground"]
+      for (var i = 0; i < roles.length; i++) {
+        if (typeof colors[roles[i]] !== "string" || !/^#[0-9a-fA-F]{6}$/.test(colors[roles[i]])) return
+      }
+      themeColors = colors
+    } catch (e) {}
+  }
+
+  FileView {
+    id: themeFile
+    path: root.configHome + "/quickshell/picker/colors.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadTheme(text())
+  }
+
+  // Also recover when the palette did not exist at launch, or is replaced
+  // atomically by the theme renderer and its file watch needs reattaching.
+  Timer {
+    interval: 1000
+    running: root.opened
+    repeat: true
+    onTriggered: themeFile.reload()
+  }
 
   readonly property int expandedWidth: 768
   readonly property int expandedHeight: 432
